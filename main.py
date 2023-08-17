@@ -1,11 +1,16 @@
+# Importa las clases FastAPI y HTMLResponse desde el módulo fastapi
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
+# Crea una instancia de FastAPI
 app = FastAPI()
+
+# Define el título y la versión de la aplicación
 app.title = "Mi aplicacion con FastAPI"
 app.version = "0.0.1"
 
-movies= [
+# Lista de películas en forma de diccionarios
+movies = [
     {
         "id": 1,
         "title": "Aventuras en la Montaña",
@@ -33,12 +38,20 @@ movies= [
     # Puedes agregar más películas aquí en el mismo formato
 ]
 
-
+# Ruta para mostrar un mensaje en la página de inicio
 @app.get('/', tags=['home'])
 def message():
     return HTMLResponse('<h1>Hello world<h1/>')
 
-
+# Ruta para obtener la lista de películas
 @app.get('/movies', tags=['movies'])
 def get_movies():
     return movies
+
+# Ruta para obtener detalles de una película por su ID
+@app.get('/movies/{id}', tags=['movies'])
+def get_movie(id: int):
+    for item in movies:
+        if item["id"] == id:
+            return item
+    return []
