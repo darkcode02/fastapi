@@ -55,3 +55,10 @@ def get_movie(id: int):
         if item["id"] == id:
             return item
     return []
+
+@app.get('/movies/', tags=['movies'])
+def get_movies_by_category(category: str, year:int):
+    for item in movies:
+        if item["category"].lower() == category:
+            return item
+    return []
