@@ -1,5 +1,5 @@
 # Importa las clases FastAPI y HTMLResponse desde el módulo fastapi
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse
 
 # Crea una instancia de FastAPI
@@ -56,9 +56,42 @@ def get_movie(id: int):
             return item
     return []
 
+# Ruta para obtener películas por categoría y año
 @app.get('/movies/', tags=['movies'])
-def get_movies_by_category(category: str, year:int):
+def get_movies_by_category(category: str, year: int):
+    return [item for item in movies if item["category"].lower() == category]
+
+# Ruta para crear una película mediante el método POST
+@app.post('/movies', tags=['movies'])
+def create_movie(id: int = Body(), title: str = Body(), overview: str = Body(), year: int = Body(), rating: float = Body(), category: str = Body()):
+    movies.append(
+        {
+            "id": id,
+            "title": title,
+            "overview": overview,
+            "year": year,
+            "rating": rating,
+            "category": category
+        }
+    )
+    return movies
+
+# Ruta para actualizar una película mediante el método PUT
+@app.put('/movies/{id}', tags=['movies'])
+def update_movie(id: int, title: str = Body(), overview: str = Body(), year: int = Body(), rating: float = Body(), category: str = Body()):
     for item in movies:
-        if item["category"].lower() == category:
-            return item
-    return []
+        if item["id"] == id:
+            item['title'] = title
+            item['overview'] = overview
+            item['year'] = year
+            item['rating'] = rating
+            item['category'] = category
+            return movies
+
+# Ruta para eliminar una película mediante el método DELETE
+@app.delete('/movies/{id}', tags=['movies'])
+def delete_movie(id: int):
+    for item in movies:
+        if item["id"] == id:
+            movies.remove(item)
+            return movies
