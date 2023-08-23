@@ -1,6 +1,8 @@
 # Importa las clases FastAPI y HTMLResponse desde el módulo fastapi
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Path, Query
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, Field
+from typing import Optional
 
 # Crea una instancia de FastAPI
 app = FastAPI()
@@ -8,6 +10,31 @@ app = FastAPI()
 # Define el título y la versión de la aplicación
 app.title = "Mi aplicacion con FastAPI"
 app.version = "0.0.1"
+
+
+#creacion de esquemas
+class Movie(BaseModel):
+    id: Optional[int] = None
+    title: str = Field(min_length=5, max_length=15)
+    overview : str=Field(min_length=15, max_length=50)
+    year: int  = Field(le=2023)
+    rating: float = Field(ge=1,Le=10)
+    category: str= Field(min_length=3, max_length=20)
+
+    class Config:
+        schema_extra = {
+            "example":{
+                "id":1,
+                "title":"Mi pelicula",
+                "overview": "Descripcion de la pelicula",
+                "year":2023,
+                "rating":9.8,
+                "category":"Accion"
+
+            }
+        }
+
+
 
 # Lista de películas en forma de diccionarios
 movies = [
@@ -118,7 +145,7 @@ def get_movies():
 
 # Ruta para obtener detalles de una película por su ID
 @app.get('/movies/{id}', tags=['movies'])
-def get_movie(id: int):
+def get_movie(id: int = Path(ge=1, Le=2000)):
     for item in movies:
         if item["id"] == id:
             return item
@@ -126,34 +153,25 @@ def get_movie(id: int):
 
 # Ruta para obtener películas por categoría y año
 @app.get('/movies/', tags=['movies'])
-def get_movies_by_category(category: str, year: int):
+def get_movies_by_category(category: str = Query(min_length=5, max_length=15)):
     return [item for item in movies if item["category"].lower() == category]
 
 # Ruta para crear una película mediante el método POST
 @app.post('/movies', tags=['movies'])
-def create_movie(id: int = Body(), title: str = Body(), overview: str = Body(), year: int = Body(), rating: float = Body(), category: str = Body()):
-    movies.append(
-        {
-            "id": id,
-            "title": title,
-            "overview": overview,
-            "year": year,
-            "rating": rating,
-            "category": category
-        }
-    )
+def create_movie(movie:Movie):
+    movies.append(movie)
     return movies
 
 # Ruta para actualizar una película mediante el método PUT
 @app.put('/movies/{id}', tags=['movies'])
-def update_movie(id: int, title: str = Body(), overview: str = Body(), year: int = Body(), rating: float = Body(), category: str = Body()):
+def update_movie(id: int, movie:Movie):
     for item in movies:
         if item["id"] == id:
-            item['title'] = title
-            item['overview'] = overview
-            item['year'] = year
-            item['rating'] = rating
-            item['category'] = category
+            item['title'] = movie.title
+            item['overview'] = movie.overview
+            item['year'] = movie.year
+            item['rating'] = movie.rating
+            item['category'] = movie.category
             return movies
 
 # Ruta para eliminar una película mediante el método DELETE
