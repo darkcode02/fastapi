@@ -7,22 +7,18 @@ from fastapi.security import HTTPBearer
 from config.database import Session, engine, Base
 from models.movie import Movie as MovieModel
 from fastapi.encoders import jsonable_encoder
+from middlewares.error_handler import ErrorHandler
+from middlewares.jwt_bearer import JWTBearer
+
 
 # Crea una instancia de FastAPI
 app = FastAPI()
 app.title = "Mi aplicación con FastAPI"
 app.version = "0.0.1"
+app.add_middleware(ErrorHandler)
 
 # Crea las tablas en la base de datos si no existen
 Base.metadata.create_all(bind=engine)
-
-# Define una clase personalizada para manejar la autenticación JWT
-class JWTBearer(HTTPBearer):
-    async def __call__(self, request: Request):
-        auth = await super().__call__(request)
-        data = validate_token(auth.credentials)
-        if data['email'] != "admin@gmail.com":
-            raise HTTPException(status_code=403, detail="Credenciales son invalidas")
 
 # Define una clase Pydantic para validar la entrada de usuario en el endpoint de login
 class User(BaseModel):
@@ -147,12 +143,37 @@ def message():
 
     """
 
+# Crear una estructura de datos para almacenar usuarios
+users = [
+    {
+        "email": "admin@gmail.com",
+        "password": "admin"
+    },
+    {
+        "email": "user1@gmail.com",
+        "password": "password1"
+    },
+    {
+        "email": "user2@gmail.com",
+        "password": "password2"
+    }
+]
+
 # Endpoint de login
 @app.post('/login', tags=['auth'])
 def login(user: User):
-    if user.email == "admin@gmail.com" and user.password == "admin":
-        token: str = create_token(user.dict())
+    # Buscar el usuario en la lista de usuarios
+    found_user = None
+    for stored_user in users:
+        if stored_user["email"] == user.email and stored_user["password"] == user.password:
+            found_user = stored_user
+            break
+
+    if found_user:
+        token: str = create_token({"email": user.email})
         return JSONResponse(status_code=200, content=token)
+    else:
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
 # Endpoint para obtener la lista de películas
 @app.get('/movies', tags=['movies'], response_model=List[Movie], status_code=200, dependencies=[Depends(JWTBearer())])
