@@ -1,14 +1,11 @@
-from fastapi import Depends, FastAPI, Body, HTTPException, Path, Query, Request
+from fastapi import  FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel, Field
-from typing import Optional, List
-from jwt_manager import create_token, validate_token
-from fastapi.security import HTTPBearer
-from config.database import Session, engine, Base
-from models.movie import Movie as MovieModel
-from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel
+from utils.jwt_manager import create_token
+from config.database import  engine, Base
 from middlewares.error_handler import ErrorHandler
-from middlewares.jwt_bearer import JWTBearer
+from routers.movie import movie_router
+from routers.login import login_router
 
 
 # Crea una instancia de FastAPI
@@ -16,35 +13,11 @@ app = FastAPI()
 app.title = "Mi aplicación con FastAPI"
 app.version = "0.0.1"
 app.add_middleware(ErrorHandler)
+app.include_router(movie_router)
+app.include_router(login_router)
 
 # Crea las tablas en la base de datos si no existen
 Base.metadata.create_all(bind=engine)
-
-# Define una clase Pydantic para validar la entrada de usuario en el endpoint de login
-class User(BaseModel):
-    email: str
-    password: str
-
-# Define una clase Pydantic para representar los datos de una película
-class Movie(BaseModel):
-    id: Optional[int] = None
-    title: str = Field(min_length=5, max_length=30)
-    overview: str = Field(min_length=15, max_length=50)
-    year: int = Field(le=2022)
-    rating: float = Field(ge=1, le=10)
-    category: str = Field(min_length=5, max_length=15)
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "id": 1,
-                "title": "Mi película",
-                "overview": "Descripción de la película",
-                "year": 2022,
-                "rating": 9.8,
-                "category": "Acción"
-            }
-        }
 
 # Datos de ejemplo para las películas
 movies = [
@@ -143,94 +116,4 @@ def message():
 
     """
 
-# Crear una estructura de datos para almacenar usuarios
-users = [
-    {
-        "email": "admin@gmail.com",
-        "password": "admin"
-    },
-    {
-        "email": "user1@gmail.com",
-        "password": "password1"
-    },
-    {
-        "email": "user2@gmail.com",
-        "password": "password2"
-    }
-]
 
-# Endpoint de login
-@app.post('/login', tags=['auth'])
-def login(user: User):
-    # Buscar el usuario en la lista de usuarios
-    found_user = None
-    for stored_user in users:
-        if stored_user["email"] == user.email and stored_user["password"] == user.password:
-            found_user = stored_user
-            break
-
-    if found_user:
-        token: str = create_token({"email": user.email})
-        return JSONResponse(status_code=200, content=token)
-    else:
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
-
-# Endpoint para obtener la lista de películas
-@app.get('/movies', tags=['movies'], response_model=List[Movie], status_code=200, dependencies=[Depends(JWTBearer())])
-def get_movies() -> List[Movie]:
-    db = Session()
-    result = db.query(MovieModel).all()
-    return JSONResponse(status_code=200, content=jsonable_encoder(result))
-
-# Endpoint para obtener una película por su ID
-@app.get('/movies/{id}', tags=['movies'], response_model=Movie)
-def get_movie(id: int = Path(ge=1, le=2000)) -> Movie:
-    db =  Session()
-    result = db.query(MovieModel).filter(MovieModel.id == id).first()
-    if not result:
-            return JSONResponse(status_code=404, content={'message':"Id no encontrado"})
-    return JSONResponse(status_code=200,content=jsonable_encoder(result))
-    
-
-# Endpoint para obtener películas por categoría
-@app.get('/movies/', tags=['movies'], response_model=List[Movie])
-def get_movies_by_category(category: str = Query(min_length=5, max_length=15)) -> List[Movie]:
-    db =  Session()
-    result = db.query(MovieModel).filter(MovieModel.category == category).all()
-    if not result:
-            return JSONResponse(status_code=404, content={'message':"categoria no encontrada"})
-    return JSONResponse(status_code=200,content=jsonable_encoder(result))
-# Endpoint para crear una película
-@app.post('/movies', tags=['movies'], response_model=dict, status_code=201)
-def create_movie(movie: Movie) -> dict:
-    db = Session()
-    new_movie = MovieModel(**movie.dict())
-    db.add(new_movie)
-    db.commit()
-    return JSONResponse(status_code=201, content={"message": "Se ha registrado la película"})
-
-# Endpoint para actualizar una película por su ID
-@app.put('/movies/{id}', tags=['movies'], response_model=dict, status_code=200)
-def update_movie(id: int, movie: Movie) -> dict:
-    db = Session()
-    result = db.query(MovieModel).filter(MovieModel.id == id).first()
-    if not result:
-        return JSONResponse(status_code=404, content={'message':'Id no encontrado'})
-    result.title = movie.title
-    result.overview = movie.overview
-    result.year = movie.year
-    result.rating = movie.rating
-    result.category = movie.category
-    db.commit()
-    return JSONResponse(status_code=200, content={'message':'Se ha modificado la pelicula'})
-
-# Endpoint para eliminar una película por su ID
-@app.delete('/movies/{id}', tags=['movies'], response_model=dict, status_code=200)
-def delete_movie(id: int) -> dict:
-    db = Session()
-    result = db.query(MovieModel).filter(MovieModel.id == id).first()
-    if not result:
-        return JSONResponse(status_code=404, content={'message':'Id no encontrado'})
-    db.delete(result)
-    db.commit()
-    return JSONResponse(status_code=200, content={'message':'Se ha eliminado la pelicula'})
